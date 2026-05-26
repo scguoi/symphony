@@ -59,7 +59,10 @@ defmodule SymphonyElixir.Plane.Client do
       {:ok, list_payload(body)}
     else
       {:ok, response} -> plane_status_error("Plane state list failed", response)
-      {:error, reason} when reason in [:missing_plane_api_token, :missing_plane_workspace_slug, :missing_plane_project_id] -> {:error, reason}
+      {:error, reason}
+      when reason in [:missing_plane_api_token, :missing_plane_workspace_slug, :missing_plane_project_id] ->
+        {:error, reason}
+
       {:error, reason} -> plane_request_error(reason)
     end
   end
@@ -116,11 +119,7 @@ defmodule SymphonyElixir.Plane.Client do
     end
   end
 
-  defp fetch_states do
-    with {:ok, states} <- list_states() do
-      {:ok, states}
-    end
-  end
+  defp fetch_states, do: list_states()
 
   defp fetch_work_items_by_state_ids(state_ids, states, assignee_filter) do
     state_index = state_index(states)
