@@ -395,8 +395,7 @@ defmodule SymphonyElixir.Config.Schema do
     tracker = %{
       settings.tracker
       | api_key: resolve_secret_setting(settings.tracker.api_key, tracker_api_key_fallback),
-        workspace_slug:
-          resolve_secret_setting(settings.tracker.workspace_slug, System.get_env("PLANE_WORKSPACE_SLUG")),
+        workspace_slug: resolve_secret_setting(settings.tracker.workspace_slug, System.get_env("PLANE_WORKSPACE_SLUG")),
         project_id: resolve_secret_setting(settings.tracker.project_id, System.get_env("PLANE_PROJECT_ID")),
         assignee: resolve_secret_setting(settings.tracker.assignee, tracker_assignee_fallback)
     }
