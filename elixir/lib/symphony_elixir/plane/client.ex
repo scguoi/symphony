@@ -58,12 +58,15 @@ defmodule SymphonyElixir.Plane.Client do
            request(:get, project_path("/states/"), %{}, opts) do
       {:ok, list_payload(body)}
     else
-      {:ok, response} -> plane_status_error("Plane state list failed", response)
+      {:ok, response} ->
+        plane_status_error("Plane state list failed", response)
+
       {:error, reason}
       when reason in [:missing_plane_api_token, :missing_plane_workspace_slug, :missing_plane_project_id] ->
         {:error, reason}
 
-      {:error, reason} -> plane_request_error(reason)
+      {:error, reason} ->
+        plane_request_error(reason)
     end
   end
 
