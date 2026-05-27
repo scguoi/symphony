@@ -150,6 +150,7 @@ The demo starts:
 - A local bare Git repository mounted into both workers.
 - Two SSH workers.
 - Symphony on `http://localhost:4000`.
+- A demo Plane page on `http://localhost:8000`.
 
 The demo worker command clones the local repository, writes `FORGEFLOW_DEMO_RESULT.md`, marks the
 mock Plane item as `Done`, and then exits. The dashboard should briefly show one running session and
