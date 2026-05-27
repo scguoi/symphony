@@ -21,7 +21,7 @@ agent:
   max_concurrent_agents: 4
   max_turns: 1
 codex:
-  command: "env DEMO_TURN_DELAY_SECONDS=25 DEMO_PLANE_COMPLETE_URL=http://forgeflow-plane-demo:8000/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-1/ forgeflow-demo-app-server"
+  command: "env DEMO_TURN_DELAY_SECONDS=25 DEMO_PLANE_BASE_URL=http://forgeflow-plane-demo:8000 forgeflow-demo-app-server"
   thread_sandbox: "workspace-write"
   turn_timeout_ms: 120000
 hooks:

@@ -30,8 +30,17 @@ while IFS= read -r _line; do
         echo "Completed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
       } > FORGEFLOW_DEMO_RESULT.md
 
-      if [ -n "${DEMO_PLANE_COMPLETE_URL:-}" ]; then
-        curl -fsS -X PATCH "${DEMO_PLANE_COMPLETE_URL}" \
+      complete_url="${DEMO_PLANE_COMPLETE_URL:-}"
+      if [ -z "${complete_url}" ] && [ -n "${DEMO_PLANE_BASE_URL:-}" ]; then
+        workspace_name="$(basename "$(pwd)")"
+        sequence_id="${workspace_name#FF-}"
+        if [ "${sequence_id}" != "${workspace_name}" ]; then
+          complete_url="${DEMO_PLANE_BASE_URL%/}/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-${sequence_id}/"
+        fi
+      fi
+
+      if [ -n "${complete_url}" ]; then
+        curl -fsS -X PATCH "${complete_url}" \
           -H 'Content-Type: application/json' \
           -d '{"state":"done"}' >/dev/null || true
       fi

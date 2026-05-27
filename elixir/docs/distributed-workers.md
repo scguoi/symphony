@@ -152,6 +152,10 @@ The demo starts:
 - Symphony on `http://localhost:4000`.
 - A demo Plane page on `http://localhost:8000`.
 
+Create demo work items from `http://localhost:8000`. Symphony polls `Todo` items, dispatches each
+item to an SSH worker, and updates the matching mock Plane item to `Done` when the demo app-server
+finishes.
+
 The demo worker command clones the local repository, writes `FORGEFLOW_DEMO_RESULT.md`, marks the
 mock Plane item as `Done`, and then exits. The dashboard should briefly show one running session and
 then return to an empty state after completion.

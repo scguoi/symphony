@@ -36,7 +36,7 @@ services:
     image: forgeflow-codex-worker:local
     environment:
       DEMO_TURN_DELAY_SECONDS: "25"
-      DEMO_PLANE_COMPLETE_URL: "http://forgeflow-plane-demo:8000/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-1/"
+      DEMO_PLANE_BASE_URL: "http://forgeflow-plane-demo:8000"
     volumes:
       - ${HOME}/.ssh:/host-ssh:ro
       - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
@@ -49,7 +49,7 @@ services:
       - forgeflow-worker-1
     environment:
       DEMO_TURN_DELAY_SECONDS: "25"
-      DEMO_PLANE_COMPLETE_URL: "http://forgeflow-plane-demo:8000/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-1/"
+      DEMO_PLANE_BASE_URL: "http://forgeflow-plane-demo:8000"
     volumes:
       - ${HOME}/.ssh:/host-ssh:ro
       - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
