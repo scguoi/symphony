@@ -232,16 +232,20 @@ defmodule SymphonyElixirWeb.Presenter do
 
   defp read_completed_results_history(path) do
     path
-    |> File.stream!([], :line)
-    |> Stream.map(&Jason.decode/1)
-    |> Stream.flat_map(fn
-      {:ok, result} -> [normalize_history_result(result)]
-      _ -> []
-    end)
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.flat_map(&decode_history_result/1)
     |> Enum.take(-12)
     |> Enum.reverse()
   rescue
     _error -> []
+  end
+
+  defp decode_history_result(line) do
+    case Jason.decode(line) do
+      {:ok, result} -> [normalize_history_result(result)]
+      _ -> []
+    end
   end
 
   defp normalize_history_result(result) do
