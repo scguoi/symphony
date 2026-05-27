@@ -5,33 +5,54 @@ defmodule SymphonyElixir.PlaneClientTest do
 
   test "plane tracker validates required settings and resolves env vars" do
     previous_api_key = System.get_env("PLANE_API_KEY")
+    previous_endpoint = System.get_env("PLANE_API_BASE_URL")
     previous_workspace = System.get_env("PLANE_WORKSPACE_SLUG")
     previous_project = System.get_env("PLANE_PROJECT_ID")
+    previous_identifier = System.get_env("PLANE_PROJECT_IDENTIFIER")
 
     on_exit(fn ->
       restore_env("PLANE_API_KEY", previous_api_key)
+      restore_env("PLANE_API_BASE_URL", previous_endpoint)
       restore_env("PLANE_WORKSPACE_SLUG", previous_workspace)
       restore_env("PLANE_PROJECT_ID", previous_project)
+      restore_env("PLANE_PROJECT_IDENTIFIER", previous_identifier)
     end)
 
     System.put_env("PLANE_API_KEY", "plane-key")
+    System.put_env("PLANE_API_BASE_URL", "https://plane.example")
     System.put_env("PLANE_WORKSPACE_SLUG", "forgeflow")
     System.put_env("PLANE_PROJECT_ID", "project-uuid")
+    System.put_env("PLANE_PROJECT_IDENTIFIER", "FF")
 
     write_workflow_file!(Workflow.workflow_file_path(),
       tracker_kind: "plane",
+      tracker_endpoint: "$PLANE_API_BASE_URL",
       tracker_api_token: nil,
       tracker_project_slug: nil,
       tracker_workspace_slug: nil,
-      tracker_project_id: nil
+      tracker_project_id: nil,
+      tracker_project_identifier: "$PLANE_PROJECT_IDENTIFIER"
     )
 
     settings = Config.settings!()
 
+    assert settings.tracker.endpoint == "https://plane.example"
     assert settings.tracker.api_key == "plane-key"
     assert settings.tracker.workspace_slug == "forgeflow"
     assert settings.tracker.project_id == "project-uuid"
+    assert settings.tracker.project_identifier == "FF"
     assert :ok = Config.validate!()
+
+    System.delete_env("PLANE_PROJECT_IDENTIFIER")
+
+    write_workflow_file!(Workflow.workflow_file_path(),
+      tracker_kind: "plane",
+      tracker_workspace_slug: "forgeflow",
+      tracker_project_id: "project-uuid",
+      tracker_project_identifier: "$PLANE_PROJECT_IDENTIFIER"
+    )
+
+    assert Config.settings!().tracker.project_identifier == nil
 
     write_workflow_file!(Workflow.workflow_file_path(),
       tracker_kind: "plane",

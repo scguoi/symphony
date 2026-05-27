@@ -40,6 +40,30 @@ Set:
 The first implementation uses Symphony hooks and agent workflow instructions for Gitea. It does not
 yet call Gitea's pull request API directly.
 
+## Worker model
+
+The Symphony container is the orchestrator. It should not bake in Codex, Claude Code, or any other
+programming agent runtime. Agent execution belongs on worker machines or worker containers.
+See `docs/distributed-workers.md` for the target ForgeFlow worker architecture.
+
+Configure workers through the workflow file:
+
+```yaml
+worker:
+  ssh_hosts: ["worker-01:22", "worker-02:22"]
+  max_concurrent_agents_per_host: 3
+codex:
+  command: "codex app-server"
+```
+
+Symphony connects to each worker over SSH, creates the task workspace there, runs workspace hooks,
+and starts the configured agent command from inside that workspace. Each worker is responsible for
+having the requested agent runtime and credentials installed.
+
+For SSH worker access, the Compose file mounts:
+
+- `${HOME}/.ssh` -> `/root/.ssh`
+
 ## Local Docker build
 
 ```sh
@@ -54,9 +78,20 @@ docker compose -f docker-compose.plane-gitea.yml up --build
 
 The dashboard listens on `http://localhost:4000` when `server.port` is enabled in the workflow.
 
+For a local distributed MVP with two Codex SSH workers, use:
+
+```sh
+docker compose -f docker-compose.plane-gitea.local-workers.yml up --build
+```
+
+## Local smoke tests
+
+```sh
+docker run --rm forgeflow-symphony:orchestrator --help
+```
+
 ## Current limitation
 
-The Docker image contains the Symphony runtime and Git tooling. It expects the configured
-`codex.command` to be available in the container or provided by a custom derived image. For a fully
-self-contained production image, add the approved Codex runtime installation method to the Dockerfile
-used in your deployment.
+This runtime path wires Symphony to Plane and Gitea, but it does not package a worker image yet.
+Workers must be provisioned separately with SSH, Git, the selected agent runtime, credentials, and
+the project build toolchain.

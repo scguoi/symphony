@@ -394,9 +394,11 @@ defmodule SymphonyElixir.Config.Schema do
 
     tracker = %{
       settings.tracker
-      | api_key: resolve_secret_setting(settings.tracker.api_key, tracker_api_key_fallback),
+      | endpoint: resolve_text_setting(settings.tracker.endpoint, settings.tracker.endpoint),
+        api_key: resolve_secret_setting(settings.tracker.api_key, tracker_api_key_fallback),
         workspace_slug: resolve_secret_setting(settings.tracker.workspace_slug, System.get_env("PLANE_WORKSPACE_SLUG")),
         project_id: resolve_secret_setting(settings.tracker.project_id, System.get_env("PLANE_PROJECT_ID")),
+        project_identifier: resolve_text_setting(settings.tracker.project_identifier, System.get_env("PLANE_PROJECT_IDENTIFIER")),
         assignee: resolve_secret_setting(settings.tracker.assignee, tracker_assignee_fallback)
     }
 
@@ -446,6 +448,15 @@ defmodule SymphonyElixir.Config.Schema do
   defp resolve_secret_setting(value, fallback) when is_binary(value) do
     case resolve_env_value(value, fallback) do
       resolved when is_binary(resolved) -> normalize_secret_value(resolved)
+      resolved -> resolved
+    end
+  end
+
+  defp resolve_text_setting(nil, fallback), do: normalize_text_value(fallback)
+
+  defp resolve_text_setting(value, fallback) when is_binary(value) do
+    case resolve_env_value(value, fallback) do
+      resolved when is_binary(resolved) -> normalize_text_value(resolved)
       resolved -> resolved
     end
   end
@@ -506,6 +517,12 @@ defmodule SymphonyElixir.Config.Schema do
   end
 
   defp normalize_secret_value(_value), do: nil
+
+  defp normalize_text_value(value) when is_binary(value) do
+    if value == "", do: nil, else: value
+  end
+
+  defp normalize_text_value(_value), do: nil
 
   defp default_turn_sandbox_policy(workspace) do
     %{
