@@ -1,0 +1,57 @@
+services:
+  forgeflow-plane-demo:
+    image: python:3.12-slim
+    working_dir: /app
+    command: ["python", "/app/scripts/mock-plane.py"]
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app:ro
+
+  symphony:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: forgeflow-symphony:orchestrator
+    depends_on:
+      - forgeflow-plane-demo
+      - forgeflow-worker-1
+      - forgeflow-worker-2
+    environment:
+      SYMPHONY_SSH_CONFIG: /app/ssh_config.local-workers
+    ports:
+      - "4000:4000"
+    volumes:
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ./WORKFLOW.demo-ssh-workers.md:/app/WORKFLOW.demo-ssh-workers.md:ro
+      - ./ssh_config.local-workers:/app/ssh_config.local-workers:ro
+    command:
+      - "--i-understand-that-this-will-be-running-without-the-usual-guardrails"
+      - "/app/WORKFLOW.demo-ssh-workers.md"
+
+  forgeflow-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker-codex
+    image: forgeflow-codex-worker:local
+    environment:
+      DEMO_TURN_DELAY_SECONDS: "25"
+      DEMO_PLANE_COMPLETE_URL: "http://forgeflow-plane-demo:8000/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-1/"
+    volumes:
+      - ${HOME}/.ssh:/host-ssh:ro
+      - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
+      - ${HOME}/.codex:/root/.codex
+      - ./.demo/gitea-repo.git:/demo/gitea-repo.git:ro
+
+  forgeflow-worker-2:
+    image: forgeflow-codex-worker:local
+    depends_on:
+      - forgeflow-worker-1
+    environment:
+      DEMO_TURN_DELAY_SECONDS: "25"
+      DEMO_PLANE_COMPLETE_URL: "http://forgeflow-plane-demo:8000/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-1/"
+    volumes:
+      - ${HOME}/.ssh:/host-ssh:ro
+      - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
+      - ${HOME}/.codex:/root/.codex
+      - ./.demo/gitea-repo.git:/demo/gitea-repo.git:ro

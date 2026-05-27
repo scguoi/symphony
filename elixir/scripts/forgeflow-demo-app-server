@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+thread_id="demo-thread"
+turn_id="demo-turn"
+delay_seconds="${DEMO_TURN_DELAY_SECONDS:-25}"
+count=0
+
+while IFS= read -r _line; do
+  count=$((count + 1))
+
+  case "${count}" in
+    1)
+      printf '%s\n' '{"id":1,"result":{}}'
+      ;;
+    2)
+      # initialized notification
+      ;;
+    3)
+      printf '{"id":2,"result":{"thread":{"id":"%s"}}}\n' "${thread_id}"
+      ;;
+    4)
+      printf '{"id":3,"result":{"turn":{"id":"%s"}}}\n' "${turn_id}"
+      printf '%s\n' '{"method":"item/started","params":{"item":{"type":"agent_message","id":"demo-message"}}}'
+      sleep "${delay_seconds}"
+      {
+        echo "# ForgeFlow Demo Result"
+        echo
+        echo "The demo worker received a task from Symphony and wrote this file."
+        echo "Completed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      } > FORGEFLOW_DEMO_RESULT.md
+
+      if [ -n "${DEMO_PLANE_COMPLETE_URL:-}" ]; then
+        curl -fsS -X PATCH "${DEMO_PLANE_COMPLETE_URL}" \
+          -H 'Content-Type: application/json' \
+          -d '{"state":"done"}' >/dev/null || true
+      fi
+
+      printf '%s\n' '{"method":"turn/completed","params":{"turn":{"id":"demo-turn"}}}'
+      exit 0
+      ;;
+  esac
+done

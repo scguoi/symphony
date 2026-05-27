@@ -135,6 +135,26 @@ Before running it, the host should have:
 - `${HOME}/.ssh/id_rsa` and `${HOME}/.ssh/id_rsa.pub` for orchestrator-to-worker SSH.
 - `${HOME}/.codex` for Codex authentication on workers.
 
+## Local End-to-End Demo
+
+For a self-contained demo that does not require real Plane, Gitea, or Codex credentials, run:
+
+```sh
+./scripts/prepare-demo-repo.sh
+docker compose -f docker-compose.demo-ssh-workers.yml up --build
+```
+
+The demo starts:
+
+- A mock Plane API with one `Todo` work item.
+- A local bare Git repository mounted into both workers.
+- Two SSH workers.
+- Symphony on `http://localhost:4000`.
+
+The demo worker command clones the local repository, writes `FORGEFLOW_DEMO_RESULT.md`, marks the
+mock Plane item as `Done`, and then exits. The dashboard should briefly show one running session and
+then return to an empty state after completion.
+
 ## Security Boundary
 
 Workers execute untrusted model-generated commands. Treat each worker as an isolated execution
