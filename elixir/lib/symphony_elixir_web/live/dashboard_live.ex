@@ -126,6 +126,69 @@ defmodule SymphonyElixirWeb.DashboardLive do
         <section class="section-card">
           <div class="section-header">
             <div>
+              <h2 class="section-title">Completed results</h2>
+              <p class="section-copy">Recent completed work items, result links, changed files, and captured patch output.</p>
+            </div>
+          </div>
+
+          <%= if @payload.completed_results == [] do %>
+            <p class="empty-state">No completed results found.</p>
+          <% else %>
+            <div class="result-list">
+              <article :for={entry <- @payload.completed_results} class="result-card">
+                <%= if Map.get(entry, :error) do %>
+                  <p class="error-copy"><strong>Result lookup failed:</strong> <%= entry.error %></p>
+                <% else %>
+                  <div class="result-header">
+                    <div class="issue-stack">
+                      <span class="issue-id"><%= entry.issue_identifier %></span>
+                      <h3 class="result-title"><%= entry.title %></h3>
+                    </div>
+                    <span class={state_badge_class(entry.state)}>
+                      <%= entry.state %>
+                    </span>
+                  </div>
+
+                  <div class="result-meta">
+                    <%= if entry.updated_at do %>
+                      <span class="mono numeric">Updated <%= entry.updated_at %></span>
+                    <% end %>
+                    <%= if entry.tracker_url do %>
+                      <a class="issue-link" href={entry.tracker_url}>Tracker</a>
+                    <% end %>
+                    <%= if entry.result && entry.result.pull_request_url do %>
+                      <a class="issue-link" href={entry.result.pull_request_url}>Pull request</a>
+                    <% end %>
+                    <%= if entry.result && entry.result.commit do %>
+                      <span class="mono">Commit <%= entry.result.commit %></span>
+                    <% end %>
+                  </div>
+
+                  <%= if entry.result do %>
+                    <%= if entry.result.changed_files != [] do %>
+                      <div class="file-list">
+                        <span :for={file <- entry.result.changed_files} class="file-pill"><%= file %></span>
+                      </div>
+                    <% end %>
+
+                    <%= if entry.result.patch != "" do %>
+                      <details class="patch-details">
+                        <summary>Patch and intermediate output</summary>
+                        <pre class="code-panel patch-panel"><%= entry.result.patch %></pre>
+                      </details>
+                    <% end %>
+                  <% else %>
+                    <p class="empty-state">No result comment captured for this work item.</p>
+                  <% end %>
+                <% end %>
+              </article>
+            </div>
+          <% end %>
+        </section>
+
+        <section class="section-card">
+          <div class="section-header">
+            <div>
               <h2 class="section-title">Running sessions</h2>
               <p class="section-copy">Active issues, last known agent activity, and token usage.</p>
             </div>

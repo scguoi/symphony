@@ -399,7 +399,8 @@ defmodule SymphonyElixir.ExtensionsTest do
                "total_tokens" => 12,
                "seconds_running" => 42.5
              },
-             "rate_limits" => %{"primary" => %{"remaining" => 11}}
+             "rate_limits" => %{"primary" => %{"remaining" => 11}},
+             "completed_results" => []
            }
 
     conn = get(build_conn(), "/api/v1/MT-HTTP")
@@ -582,6 +583,7 @@ defmodule SymphonyElixir.ExtensionsTest do
     assert html =~ "rendered"
     assert html =~ "turn blocked: waiting for user input"
     assert html =~ "Runtime"
+    assert html =~ "Completed results"
     assert html =~ "Live"
     assert html =~ "Offline"
     assert html =~ "Copy ID"

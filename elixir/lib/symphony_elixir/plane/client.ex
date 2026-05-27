@@ -101,6 +101,22 @@ defmodule SymphonyElixir.Plane.Client do
     end
   end
 
+  @spec fetch_completed_results(keyword()) :: {:ok, [map()]} | {:error, term()}
+  def fetch_completed_results(opts \\ []) do
+    limit = opts |> Keyword.get(:limit, 10) |> normalize_limit()
+
+    with :ok <- validate_config(),
+         {:ok, states} <- fetch_states(),
+         state_ids <- resolve_existing_state_ids(states, Config.settings!().tracker.terminal_states),
+         {:ok, issues} <- fetch_work_items_by_state_ids(state_ids, states, nil) do
+      issues
+      |> Enum.sort_by(&issue_sort_key/1, :desc)
+      |> Enum.take(limit)
+      |> Enum.map(&result_payload_for_issue(&1, opts))
+      |> sequence_results()
+    end
+  end
+
   @doc false
   @spec normalize_work_item_for_test(map(), [map()]) :: Issue.t() | nil
   def normalize_work_item_for_test(work_item, states \\ []) when is_map(work_item) do
@@ -162,6 +178,19 @@ defmodule SymphonyElixir.Plane.Client do
     |> case do
       {:ok, issues} -> {:ok, issues |> Enum.reject(&is_nil/1) |> Enum.reverse()}
       error -> error
+    end
+  end
+
+  defp fetch_work_item_comments(work_item_id, opts) do
+    case request(:get, work_item_path(work_item_id, "/comments/"), %{}, opts) do
+      {:ok, %{status: status, body: body}} when status in 200..299 ->
+        {:ok, list_payload(body)}
+
+      {:ok, response} ->
+        plane_status_error("Plane work item comment list failed", response)
+
+      {:error, reason} ->
+        plane_request_error(reason)
     end
   end
 
@@ -260,6 +289,15 @@ defmodule SymphonyElixir.Plane.Client do
     end
   end
 
+  defp resolve_existing_state_ids(states, state_names) do
+    states_by_name = Map.new(states, fn state -> {normalize_name(state["name"]), state["id"]} end)
+
+    state_names
+    |> Enum.map(&Map.get(states_by_name, normalize_name(&1)))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.uniq()
+  end
+
   defp resolve_one_state_id(states, state_name) do
     with {:ok, [state_id]} <- resolve_state_ids(states, [state_name]) do
       {:ok, state_id}
@@ -328,9 +366,17 @@ defmodule SymphonyElixir.Plane.Client do
 
   defp work_item_url(work_item) do
     tracker = Config.settings!().tracker
+    identifier = work_item_identifier(work_item, map_value(work_item, "project"))
 
-    if is_integer(work_item["sequence_id"]) do
-      "#{endpoint()}/#{tracker.workspace_slug}/projects/#{tracker.project_id}/issues/#{work_item["sequence_id"]}"
+    cond do
+      is_binary(identifier) ->
+        "#{public_endpoint()}/#{tracker.workspace_slug}/browse/#{identifier}/"
+
+      is_integer(work_item["sequence_id"]) ->
+        "#{public_endpoint()}/#{tracker.workspace_slug}/projects/#{tracker.project_id}/issues/#{work_item["sequence_id"]}"
+
+      true ->
+        nil
     end
   end
 
@@ -427,6 +473,125 @@ defmodule SymphonyElixir.Plane.Client do
     |> elem(1)
     |> Enum.reverse()
   end
+
+  defp result_payload_for_issue(issue, opts) do
+    with {:ok, comments} <- fetch_work_item_comments(issue.id, opts) do
+      result_comment =
+        comments
+        |> Enum.sort_by(&comment_sort_key/1, :desc)
+        |> Enum.find(&forgeflow_result_comment?/1)
+
+      {:ok,
+       %{
+         issue_id: issue.id,
+         issue_identifier: issue.identifier,
+         title: issue.title,
+         state: issue.state,
+         tracker_url: issue.url,
+         updated_at: iso8601(issue.updated_at),
+         result: parse_result_comment(result_comment)
+       }}
+    end
+  end
+
+  defp sequence_results(results) do
+    Enum.reduce_while(results, {:ok, []}, fn
+      {:ok, result}, {:ok, acc} -> {:cont, {:ok, [result | acc]}}
+      {:error, reason}, _acc -> {:halt, {:error, reason}}
+    end)
+    |> case do
+      {:ok, results} -> {:ok, Enum.reverse(results)}
+      error -> error
+    end
+  end
+
+  defp parse_result_comment(nil), do: nil
+
+  defp parse_result_comment(%{"comment_html" => html} = comment) when is_binary(html) do
+    %{
+      created_at: iso8601(parse_datetime(comment["created_at"])),
+      commit: first_capture(html, ~r/Commit:\s*<code>([^<]+)<\/code>/),
+      pull_request_url: first_capture(html, ~r/Gitea pull request:\s*<a href="([^"]+)"/),
+      changed_files: changed_files_from_comment(html),
+      patch: patch_from_comment(html)
+    }
+  end
+
+  defp parse_result_comment(_comment), do: nil
+
+  defp forgeflow_result_comment?(%{"comment_html" => html}) when is_binary(html) do
+    String.contains?(html, "ForgeFlow completed") or String.contains?(html, "Gitea pull request:")
+  end
+
+  defp forgeflow_result_comment?(_comment), do: false
+
+  defp changed_files_from_comment(html) do
+    html
+    |> first_capture(~r/<pre>(.*?)<\/pre>/s)
+    |> html_unescape()
+    |> String.split("\n", trim: true)
+  end
+
+  defp patch_from_comment(html) do
+    html
+    |> first_capture(~r/<details><summary>Patch<\/summary><pre>(.*?)<\/pre><\/details>/s)
+    |> html_unescape()
+    |> truncate_patch()
+  end
+
+  defp first_capture(value, regex) when is_binary(value) do
+    case Regex.run(regex, value, capture: :all_but_first) do
+      [capture | _] -> capture
+      _ -> nil
+    end
+  end
+
+  defp html_unescape(nil), do: ""
+
+  defp html_unescape(value) do
+    value
+    |> String.replace("&lt;", "<")
+    |> String.replace("&gt;", ">")
+    |> String.replace("&quot;", "\"")
+    |> String.replace("&#39;", "'")
+    |> String.replace("&amp;", "&")
+  end
+
+  defp truncate_patch(patch) when byte_size(patch) > 8_000 do
+    binary_part(patch, 0, 8_000) <> "\n...<truncated>"
+  end
+
+  defp truncate_patch(patch), do: patch
+
+  defp issue_sort_key(%Issue{updated_at: %DateTime{} = updated_at}), do: DateTime.to_unix(updated_at)
+  defp issue_sort_key(_issue), do: 0
+
+  defp comment_sort_key(%{"created_at" => created_at}) do
+    case parse_datetime(created_at) do
+      %DateTime{} = datetime -> DateTime.to_unix(datetime)
+      _ -> 0
+    end
+  end
+
+  defp comment_sort_key(_comment), do: 0
+
+  defp normalize_limit(limit) when is_integer(limit) and limit > 0, do: min(limit, 50)
+  defp normalize_limit(_limit), do: 10
+
+  defp public_endpoint do
+    case System.get_env("PLANE_PUBLIC_URL") do
+      value when is_binary(value) and value != "" -> String.trim_trailing(value, "/")
+      _ -> endpoint()
+    end
+  end
+
+  defp iso8601(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.truncate(:second)
+    |> DateTime.to_iso8601()
+  end
+
+  defp iso8601(_datetime), do: nil
 
   defp plane_status_error(message, response) do
     Logger.error("#{message} status=#{response.status} body=#{summarize_error_body(response.body)}")
