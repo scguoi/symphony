@@ -41,7 +41,7 @@ services:
       - ${HOME}/.ssh:/host-ssh:ro
       - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
       - ${HOME}/.codex:/root/.codex
-      - ./.demo/gitea-repo.git:/demo/gitea-repo.git:ro
+      - ./.demo/gitea-repo.git:/demo/gitea-repo.git
 
   forgeflow-worker-2:
     image: forgeflow-codex-worker:local
@@ -54,4 +54,4 @@ services:
       - ${HOME}/.ssh:/host-ssh:ro
       - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
       - ${HOME}/.codex:/root/.codex
-      - ./.demo/gitea-repo.git:/demo/gitea-repo.git:ro
+      - ./.demo/gitea-repo.git:/demo/gitea-repo.git

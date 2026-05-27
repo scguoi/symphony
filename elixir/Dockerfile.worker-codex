@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     git \
     openssh-server \
+    python3 \
     ripgrep \
     && rm -rf /var/lib/apt/lists/*
 

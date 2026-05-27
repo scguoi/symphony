@@ -156,9 +156,10 @@ Create demo work items from `http://localhost:8000`. Symphony polls `Todo` items
 item to an SSH worker, and updates the matching mock Plane item to `Done` when the demo app-server
 finishes.
 
-The demo worker command clones the local repository, writes `FORGEFLOW_DEMO_RESULT.md`, marks the
-mock Plane item as `Done`, and then exits. The dashboard should briefly show one running session and
-then return to an empty state after completion.
+The demo worker command clones the local repository, writes a task-specific result file, creates a
+small generated source file, commits and pushes the change back to the local bare repository, then
+updates the mock Plane item with the commit SHA, changed files, result content, and patch. The
+dashboard should briefly show one running session and then return to an empty state after completion.
 
 ## Security Boundary
 

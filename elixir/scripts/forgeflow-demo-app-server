@@ -23,18 +23,63 @@ while IFS= read -r _line; do
       printf '{"id":3,"result":{"turn":{"id":"%s"}}}\n' "${turn_id}"
       printf '%s\n' '{"method":"item/started","params":{"item":{"type":"agent_message","id":"demo-message"}}}'
       sleep "${delay_seconds}"
+      workspace_name="$(basename "$(pwd)")"
+      sequence_id="${workspace_name#FF-}"
+      if [ "${sequence_id}" = "${workspace_name}" ]; then
+        sequence_id="unknown"
+      fi
+      result_file="forgeflow-results/${workspace_name}.md"
+      code_file="src/generated/${workspace_name}.txt"
+      mkdir -p "$(dirname "${result_file}")" "$(dirname "${code_file}")"
+
       {
         echo "# ForgeFlow Demo Result"
         echo
-        echo "The demo worker received a task from Symphony and wrote this file."
+        echo "The demo worker received ${workspace_name} from Symphony and wrote this file."
         echo "Completed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-      } > FORGEFLOW_DEMO_RESULT.md
+      } > "${result_file}"
+
+      {
+        echo "forgeflow_task=${workspace_name}"
+        echo "worker_result=completed"
+        echo "completed_at=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      } > "${code_file}"
+
+      git config user.name "ForgeFlow Demo Worker"
+      git config user.email "worker@forgeflow.local"
+      git add "${result_file}" "${code_file}"
+      git commit -m "feat: complete ${workspace_name} demo task" >/dev/null
+      git push origin HEAD:main >/dev/null
+
+      commit_sha="$(git rev-parse --short HEAD)"
+      changed_files_path="$(mktemp)"
+      patch_path="$(mktemp)"
+      git show --format= --name-only HEAD | sed '/^$/d' > "${changed_files_path}"
+      git show --format= --patch --no-ext-diff --unified=20 HEAD > "${patch_path}"
+      payload_path="$(mktemp)"
+      python3 - "${commit_sha}" "${result_file}" "${changed_files_path}" "${patch_path}" > "${payload_path}" <<'PY'
+import json
+import pathlib
+import sys
+
+commit_sha, result_file, changed_files_path, patch_path = sys.argv[1:]
+payload = {
+    "state": "done",
+    "commit_sha": commit_sha,
+    "result_markdown": pathlib.Path(result_file).read_text(),
+    "changed_files": [
+        line.strip()
+        for line in pathlib.Path(changed_files_path).read_text().splitlines()
+        if line.strip()
+    ],
+    "patch": pathlib.Path(patch_path).read_text()[:16000],
+}
+print(json.dumps(payload))
+PY
 
       complete_url="${DEMO_PLANE_COMPLETE_URL:-}"
       if [ -z "${complete_url}" ] && [ -n "${DEMO_PLANE_BASE_URL:-}" ]; then
-        workspace_name="$(basename "$(pwd)")"
-        sequence_id="${workspace_name#FF-}"
-        if [ "${sequence_id}" != "${workspace_name}" ]; then
+        if [ "${sequence_id}" != "unknown" ]; then
           complete_url="${DEMO_PLANE_BASE_URL%/}/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-${sequence_id}/"
         fi
       fi
@@ -42,7 +87,7 @@ while IFS= read -r _line; do
       if [ -n "${complete_url}" ]; then
         curl -fsS -X PATCH "${complete_url}" \
           -H 'Content-Type: application/json' \
-          -d '{"state":"done"}' >/dev/null || true
+          --data-binary @"${payload_path}" >/dev/null || true
       fi
 
       printf '%s\n' '{"method":"turn/completed","params":{"turn":{"id":"demo-turn"}}}'

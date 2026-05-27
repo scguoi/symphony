@@ -36,6 +36,10 @@ def new_work_item(sequence_id, name, description, item_state="todo"):
         "url": f"http://localhost:8000/demo-work-item-{sequence_id}",
         "created_at": timestamp,
         "updated_at": timestamp,
+        "result_markdown": "",
+        "commit_sha": "",
+        "changed_files": [],
+        "patch": "",
     }
 
 
@@ -166,6 +170,15 @@ def page_shell(title, body):
         text-align: left;
       }}
       th {{ color: #5a6872; font-size: 13px; }}
+      h2 {{ margin-top: 32px; }}
+      pre {{
+        background: #101820;
+        border-radius: 8px;
+        color: #e7eef2;
+        overflow-x: auto;
+        padding: 14px;
+        white-space: pre-wrap;
+      }}
     </style>
   </head>
   <body>
@@ -209,6 +222,23 @@ def root_page():
 
 
 def work_item_page(item):
+    result = ""
+    if item.get("commit_sha"):
+        changed_files = "".join(
+            f"<li><code>{html.escape(path)}</code></li>"
+            for path in item.get("changed_files", [])
+        )
+        result = f"""
+          <h2>Worker Result</h2>
+          <p>Commit: <code>{html.escape(item["commit_sha"])}</code></p>
+          <h3>Changed files</h3>
+          <ul>{changed_files}</ul>
+          <h3>Result file</h3>
+          <pre>{html.escape(item.get("result_markdown", ""))}</pre>
+          <h3>Patch</h3>
+          <pre>{html.escape(item.get("patch", ""))}</pre>
+        """
+
     body = f"""
       <p><a href="/">ForgeFlow Plane Demo</a></p>
       <h1>{html.escape(item_identifier(item))} {html.escape(item["name"])}</h1>
@@ -216,6 +246,7 @@ def work_item_page(item):
       <p>Status: <code>{html.escape(item["state"])}</code></p>
       <p>Updated: <code>{html.escape(item["updated_at"])}</code></p>
       <p>API: <code>/api/v1/workspaces/{WORKSPACE_SLUG}/projects/{PROJECT_ID}/work-items/{html.escape(item["id"])}/</code></p>
+      {result}
     """
     return page_shell(f"{item_identifier(item)} - ForgeFlow Plane Demo", body)
 
@@ -313,6 +344,15 @@ class Handler(BaseHTTPRequestHandler):
                 if body.get("state") in {"todo", "progress", "done"}:
                     item["state"] = body["state"]
                     item["updated_at"] = now()
+                for key in ("result_markdown", "commit_sha", "patch"):
+                    if isinstance(body.get(key), str):
+                        item[key] = body[key]
+                if isinstance(body.get("changed_files"), list):
+                    item["changed_files"] = [
+                        value
+                        for value in body["changed_files"]
+                        if isinstance(value, str)
+                    ]
                 json_response(self, 200, item)
                 return
 
