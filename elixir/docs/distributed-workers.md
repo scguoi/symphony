@@ -156,10 +156,21 @@ Create demo work items from `http://localhost:8000`. Symphony polls `Todo` items
 item to an SSH worker, and updates the matching mock Plane item to `Done` when the demo app-server
 finishes.
 
-The demo worker command clones the local repository, writes a task-specific result file, creates a
-small generated source file, commits and pushes the change back to the local bare repository, then
-updates the mock Plane item with the commit SHA, changed files, result content, and patch. The
-dashboard should briefly show one running session and then return to an empty state after completion.
+The demo worker command runs the real `codex app-server` inside an SSH worker. `prepare-demo-repo.sh`
+copies `${HOME}/.codex/auth.json` into `.demo/codex-home/` and mounts that directory as the worker's
+Codex home, so the Linux container gets a clean state database instead of reusing macOS sqlite files.
+Codex edits the cloned repository. The `after_run` hook then commits and pushes the change back to
+the local bare repository and updates the mock Plane item with the commit SHA, changed files, result
+content, and patch. The dashboard should briefly show one running session and then return to an empty
+state after completion.
+
+The local Docker demo runs Codex with `danger-full-access` because Docker Desktop does not provide
+the user namespace support needed by Codex's normal Linux sandbox in this worker container. Keep that
+setting scoped to the local MVP. For production workers, prefer VM or host isolation and return Codex
+to `workspace-write` once the worker runtime supports the sandbox.
+
+The seeded demo repository includes empty `src/generated/` and `forgeflow-results/` directories so
+Codex can add files there directly.
 
 ## Security Boundary
 

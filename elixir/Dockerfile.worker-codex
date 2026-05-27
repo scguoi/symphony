@@ -31,7 +31,8 @@ RUN mkdir -p /run/sshd /workspaces \
 
 COPY scripts/worker-entrypoint.sh /usr/local/bin/worker-entrypoint
 COPY scripts/forgeflow-demo-app-server /usr/local/bin/forgeflow-demo-app-server
-RUN chmod +x /usr/local/bin/worker-entrypoint /usr/local/bin/forgeflow-demo-app-server
+COPY scripts/forgeflow-demo-after-run /usr/local/bin/forgeflow-demo-after-run
+RUN chmod +x /usr/local/bin/worker-entrypoint /usr/local/bin/forgeflow-demo-app-server /usr/local/bin/forgeflow-demo-after-run
 
 EXPOSE 22
 
