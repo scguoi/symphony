@@ -22,7 +22,8 @@ defmodule SymphonyElixirWeb.Presenter do
           retrying: Enum.map(snapshot.retrying, &retry_entry_payload/1),
           blocked: Enum.map(Map.get(snapshot, :blocked, []), &blocked_entry_payload/1),
           codex_totals: snapshot.codex_totals,
-          rate_limits: snapshot.rate_limits
+          rate_limits: snapshot.rate_limits,
+          completed_results: completed_results_payload()
         }
 
       :timeout ->
@@ -215,6 +216,70 @@ defmodule SymphonyElixirWeb.Presenter do
       }
     ]
     |> Enum.reject(&is_nil(&1.at))
+  end
+
+  defp completed_results_payload do
+    case System.get_env("FORGEFLOW_HISTORY_PATH") do
+      path when is_binary(path) and path != "" ->
+        read_completed_results_history(path)
+
+      _ ->
+        []
+    end
+  rescue
+    _error -> []
+  end
+
+  defp read_completed_results_history(path) do
+    path
+    |> File.read!()
+    |> String.split("\n", trim: true)
+    |> Enum.flat_map(&decode_history_result/1)
+    |> Enum.take(-12)
+    |> Enum.reverse()
+  rescue
+    _error -> []
+  end
+
+  defp decode_history_result(line) do
+    case Jason.decode(line) do
+      {:ok, result} -> [normalize_history_result(result)]
+      _ -> []
+    end
+  end
+
+  defp normalize_history_result(result) do
+    result
+    |> atomize_known_result_keys()
+    |> Map.update(:result, nil, fn
+      value when is_map(value) -> atomize_known_result_keys(value)
+      value -> value
+    end)
+  end
+
+  defp atomize_known_result_keys(map) when is_map(map) do
+    allowed_keys = [
+      "issue_id",
+      "issue_identifier",
+      "title",
+      "state",
+      "tracker_url",
+      "updated_at",
+      "result",
+      "created_at",
+      "commit",
+      "pull_request_url",
+      "changed_files",
+      "patch",
+      "error"
+    ]
+
+    Enum.reduce(allowed_keys, %{}, fn key, acc ->
+      case Map.fetch(map, key) do
+        {:ok, value} -> Map.put(acc, String.to_atom(key), value)
+        :error -> acc
+      end
+    end)
   end
 
   defp summarize_message(nil), do: nil

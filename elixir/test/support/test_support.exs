@@ -14,6 +14,7 @@ defmodule SymphonyElixir.TestSupport do
       alias SymphonyElixir.Linear.Client
       alias SymphonyElixir.Linear.Issue
       alias SymphonyElixir.Orchestrator
+      alias SymphonyElixir.Plane
       alias SymphonyElixir.PromptBuilder
       alias SymphonyElixir.StatusDashboard
       alias SymphonyElixir.Tracker
@@ -96,6 +97,9 @@ defmodule SymphonyElixir.TestSupport do
           tracker_endpoint: "https://api.linear.app/graphql",
           tracker_api_token: "token",
           tracker_project_slug: "project",
+          tracker_workspace_slug: nil,
+          tracker_project_id: nil,
+          tracker_project_identifier: nil,
           tracker_assignee: nil,
           tracker_active_states: ["Todo", "In Progress"],
           tracker_terminal_states: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"],
@@ -133,6 +137,9 @@ defmodule SymphonyElixir.TestSupport do
     tracker_endpoint = Keyword.get(config, :tracker_endpoint)
     tracker_api_token = Keyword.get(config, :tracker_api_token)
     tracker_project_slug = Keyword.get(config, :tracker_project_slug)
+    tracker_workspace_slug = Keyword.get(config, :tracker_workspace_slug)
+    tracker_project_id = Keyword.get(config, :tracker_project_id)
+    tracker_project_identifier = Keyword.get(config, :tracker_project_identifier)
     tracker_assignee = Keyword.get(config, :tracker_assignee)
     tracker_active_states = Keyword.get(config, :tracker_active_states)
     tracker_terminal_states = Keyword.get(config, :tracker_terminal_states)
@@ -171,6 +178,9 @@ defmodule SymphonyElixir.TestSupport do
         "  endpoint: #{yaml_value(tracker_endpoint)}",
         "  api_key: #{yaml_value(tracker_api_token)}",
         "  project_slug: #{yaml_value(tracker_project_slug)}",
+        "  workspace_slug: #{yaml_value(tracker_workspace_slug)}",
+        "  project_id: #{yaml_value(tracker_project_id)}",
+        "  project_identifier: #{yaml_value(tracker_project_identifier)}",
         "  assignee: #{yaml_value(tracker_assignee)}",
         "  active_states: #{yaml_value(tracker_active_states)}",
         "  terminal_states: #{yaml_value(tracker_terminal_states)}",

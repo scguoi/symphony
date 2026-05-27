@@ -18,6 +18,8 @@ defmodule SymphonyElixir.MixProject do
           SymphonyElixir.SpecsCheck,
           SymphonyElixir.Orchestrator,
           SymphonyElixir.Orchestrator.State,
+          SymphonyElixir.Plane.Adapter,
+          SymphonyElixir.Plane.Client,
           SymphonyElixir.AgentRunner,
           SymphonyElixir.CLI,
           SymphonyElixir.Codex.AppServer,

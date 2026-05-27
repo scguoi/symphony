@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+workspace_name="$(basename "$(pwd)")"
+sequence_id="${workspace_name#FF-}"
+complete_url=""
+
+if [ "${sequence_id}" != "${workspace_name}" ] && [ -n "${DEMO_PLANE_BASE_URL:-}" ]; then
+  complete_url="${DEMO_PLANE_BASE_URL%/}/api/v1/workspaces/demo-workspace/projects/demo-project/work-items/demo-work-item-${sequence_id}/"
+fi
+
+git config user.name "ForgeFlow Codex Worker"
+git config user.email "codex-worker@forgeflow.local"
+
+result_file="forgeflow-results/${workspace_name}.md"
+mkdir -p "$(dirname "${result_file}")"
+
+status_before="$(git status --short)"
+
+if [ -n "${status_before}" ]; then
+  {
+    echo "# ForgeFlow Codex Result"
+    echo
+    echo "Codex produced repository changes for ${workspace_name}."
+    echo "Completed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo
+    echo "## Git status"
+    echo
+    echo '```text'
+    echo "${status_before}"
+    echo '```'
+  } > "${result_file}"
+
+  git add -A
+  git commit -m "feat: complete ${workspace_name} with codex" >/dev/null
+  git push origin HEAD:main >/dev/null
+
+  commit_sha="$(git rev-parse --short HEAD)"
+  changed_files_path="$(mktemp)"
+  patch_path="$(mktemp)"
+  git show --format= --name-only HEAD | sed '/^$/d' > "${changed_files_path}"
+  git show --format= --patch --no-ext-diff --unified=20 HEAD > "${patch_path}"
+else
+  commit_sha=""
+  changed_files_path="$(mktemp)"
+  patch_path="$(mktemp)"
+  {
+    echo "# ForgeFlow Codex Result"
+    echo
+    echo "Codex completed the turn, but no repository changes were detected."
+    echo "Completed at: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  } > "${result_file}"
+  printf '%s\n' "${result_file}" > "${changed_files_path}"
+  git add "${result_file}"
+  git commit -m "chore: record ${workspace_name} codex result" >/dev/null
+  git push origin HEAD:main >/dev/null
+  commit_sha="$(git rev-parse --short HEAD)"
+  git show --format= --patch --no-ext-diff --unified=20 HEAD > "${patch_path}"
+fi
+
+payload_path="$(mktemp)"
+python3 - "${commit_sha}" "${result_file}" "${changed_files_path}" "${patch_path}" > "${payload_path}" <<'PY'
+import json
+import pathlib
+import sys
+
+commit_sha, result_file, changed_files_path, patch_path = sys.argv[1:]
+payload = {
+    "state": "done",
+    "commit_sha": commit_sha,
+    "result_markdown": pathlib.Path(result_file).read_text(),
+    "changed_files": [
+        line.strip()
+        for line in pathlib.Path(changed_files_path).read_text().splitlines()
+        if line.strip()
+    ],
+    "patch": pathlib.Path(patch_path).read_text()[:16000],
+}
+print(json.dumps(payload))
+PY
+
+if [ -n "${complete_url}" ]; then
+  curl -fsS -X PATCH "${complete_url}" \
+    -H 'Content-Type: application/json' \
+    --data-binary @"${payload_path}" >/dev/null
+fi

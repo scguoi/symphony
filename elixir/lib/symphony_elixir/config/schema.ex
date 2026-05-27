@@ -49,6 +49,9 @@ defmodule SymphonyElixir.Config.Schema do
       field(:endpoint, :string, default: "https://api.linear.app/graphql")
       field(:api_key, :string)
       field(:project_slug, :string)
+      field(:workspace_slug, :string)
+      field(:project_id, :string)
+      field(:project_identifier, :string)
       field(:assignee, :string)
       field(:active_states, {:array, :string}, default: ["Todo", "In Progress"])
       field(:terminal_states, {:array, :string}, default: ["Closed", "Cancelled", "Canceled", "Duplicate", "Done"])
@@ -59,7 +62,18 @@ defmodule SymphonyElixir.Config.Schema do
       schema
       |> cast(
         attrs,
-        [:kind, :endpoint, :api_key, :project_slug, :assignee, :active_states, :terminal_states],
+        [
+          :kind,
+          :endpoint,
+          :api_key,
+          :project_slug,
+          :workspace_slug,
+          :project_id,
+          :project_identifier,
+          :assignee,
+          :active_states,
+          :terminal_states
+        ],
         empty_values: []
       )
     end
@@ -366,10 +380,26 @@ defmodule SymphonyElixir.Config.Schema do
   end
 
   defp finalize_settings(settings) do
+    tracker_api_key_fallback =
+      case settings.tracker.kind do
+        "plane" -> System.get_env("PLANE_API_KEY")
+        _ -> System.get_env("LINEAR_API_KEY")
+      end
+
+    tracker_assignee_fallback =
+      case settings.tracker.kind do
+        "plane" -> System.get_env("PLANE_ASSIGNEE")
+        _ -> System.get_env("LINEAR_ASSIGNEE")
+      end
+
     tracker = %{
       settings.tracker
-      | api_key: resolve_secret_setting(settings.tracker.api_key, System.get_env("LINEAR_API_KEY")),
-        assignee: resolve_secret_setting(settings.tracker.assignee, System.get_env("LINEAR_ASSIGNEE"))
+      | endpoint: resolve_text_setting(settings.tracker.endpoint, settings.tracker.endpoint),
+        api_key: resolve_secret_setting(settings.tracker.api_key, tracker_api_key_fallback),
+        workspace_slug: resolve_secret_setting(settings.tracker.workspace_slug, System.get_env("PLANE_WORKSPACE_SLUG")),
+        project_id: resolve_secret_setting(settings.tracker.project_id, System.get_env("PLANE_PROJECT_ID")),
+        project_identifier: resolve_text_setting(settings.tracker.project_identifier, System.get_env("PLANE_PROJECT_IDENTIFIER")),
+        assignee: resolve_secret_setting(settings.tracker.assignee, tracker_assignee_fallback)
     }
 
     workspace = %{
@@ -418,6 +448,15 @@ defmodule SymphonyElixir.Config.Schema do
   defp resolve_secret_setting(value, fallback) when is_binary(value) do
     case resolve_env_value(value, fallback) do
       resolved when is_binary(resolved) -> normalize_secret_value(resolved)
+      resolved -> resolved
+    end
+  end
+
+  defp resolve_text_setting(nil, fallback), do: normalize_text_value(fallback)
+
+  defp resolve_text_setting(value, fallback) when is_binary(value) do
+    case resolve_env_value(value, fallback) do
+      resolved when is_binary(resolved) -> normalize_text_value(resolved)
       resolved -> resolved
     end
   end
@@ -478,6 +517,12 @@ defmodule SymphonyElixir.Config.Schema do
   end
 
   defp normalize_secret_value(_value), do: nil
+
+  defp normalize_text_value(value) when is_binary(value) do
+    if value == "", do: nil, else: value
+  end
+
+  defp normalize_text_value(_value), do: nil
 
   defp default_turn_sandbox_policy(workspace) do
     %{

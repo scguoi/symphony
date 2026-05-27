@@ -1,0 +1,47 @@
+services:
+  symphony:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: forgeflow-symphony:orchestrator
+    depends_on:
+      - forgeflow-worker-1
+      - forgeflow-worker-2
+    environment:
+      PLANE_API_BASE_URL: ${PLANE_API_BASE_URL:-http://plane-web:3000}
+      PLANE_API_KEY: ${PLANE_API_KEY:?set PLANE_API_KEY}
+      PLANE_WORKSPACE_SLUG: ${PLANE_WORKSPACE_SLUG:?set PLANE_WORKSPACE_SLUG}
+      PLANE_PROJECT_ID: ${PLANE_PROJECT_ID:?set PLANE_PROJECT_ID}
+      PLANE_PROJECT_IDENTIFIER: ${PLANE_PROJECT_IDENTIFIER:-}
+      PLANE_ASSIGNEE: ${PLANE_ASSIGNEE:-}
+      GITEA_REPOSITORY_URL: ${GITEA_REPOSITORY_URL:?set GITEA_REPOSITORY_URL}
+      GITEA_UPSTREAM_URL: ${GITEA_UPSTREAM_URL:-}
+      SYMPHONY_SSH_CONFIG: /app/ssh_config.local-workers
+    ports:
+      - "4000:4000"
+    volumes:
+      - ${HOME}/.ssh:/root/.ssh:ro
+      - ./WORKFLOW.plane-gitea.local-workers.md:/app/WORKFLOW.local-workers.md:ro
+      - ./ssh_config.local-workers:/app/ssh_config.local-workers:ro
+    command:
+      - "--i-understand-that-this-will-be-running-without-the-usual-guardrails"
+      - "/app/WORKFLOW.local-workers.md"
+
+  forgeflow-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker-codex
+    image: forgeflow-codex-worker:local
+    volumes:
+      - ${HOME}/.ssh:/host-ssh:ro
+      - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
+      - ${HOME}/.codex:/root/.codex
+
+  forgeflow-worker-2:
+    image: forgeflow-codex-worker:local
+    depends_on:
+      - forgeflow-worker-1
+    volumes:
+      - ${HOME}/.ssh:/host-ssh:ro
+      - ${HOME}/.ssh/id_rsa.pub:/tmp/authorized_keys.pub:ro
+      - ${HOME}/.codex:/root/.codex

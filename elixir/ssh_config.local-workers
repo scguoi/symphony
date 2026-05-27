@@ -1,0 +1,6 @@
+Host forgeflow-worker-*
+  User root
+  IdentityFile /root/.ssh/id_rsa
+  StrictHostKeyChecking no
+  UserKnownHostsFile /dev/null
+  LogLevel ERROR
